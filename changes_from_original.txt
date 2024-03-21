@@ -1,0 +1,28 @@
+
+Issue:   Want to run on computers without GPUs
+    
+Changed: main.py, line 236:
+	 OLD: device = torch.device("cuda:{}".format(args.local_rank))
+	 NOW: device = torch.device("cpu")
+
+Changed: OLD: ddp_model = DistributedDataParallel(model, device_ids=[args.local_rank])
+         NEW: ddp_model = DistributedDataParallel(model, device_ids=[args.local_rank])
+
+Removed: torch.cuda.empty_cache()
+
+
+##############
+
+Issue:   main.py: error: unrecognized arguments: --local-rank=1
+Changed: main.py, line 232:
+	 OLD: args = parser.parse_args()
+ 	 NEW: args, unknown = parser.parse_known_args()
+
+###########
+
+Issue:  "SyncBatchNorm layers only work with GPU modules"
+Removed: model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+
+#########
+
+Issue: ValueError: DistributedDataParallel device_ids and output_device arguments only work with single-device/multiple-device GPU modules or CPU modules, but got device_ids [1], output_device None, and module parameters {device(type='cpu')}
