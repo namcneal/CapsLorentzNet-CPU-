@@ -2,9 +2,9 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from . import collate_fn, initialize_datasets
 
-def retrieve_dataloaders(batch_size, num_workers = 4, num_train = -1, datadir = './data'):
+def retrieve_dataloaders(batch_size, num_workers = 4, num_train = -1, num_valid=-1, num_test=-1, datadir = './data'):
     # Initialize dataloader
-    datasets = initialize_datasets(datadir, num_pts={'train':num_train,'test':-1,'valid':-1})
+    datasets = initialize_datasets(datadir, num_pts={'train':num_train, 'valid':num_valid, 'test':num_test})
         
     # distributed training
     train_sampler = DistributedSampler(datasets['train'])

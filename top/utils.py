@@ -64,14 +64,13 @@ def initialize_datasets(datadir='./data', num_pts=None):
     # Now initialize datasets based upon loaded data
     
     # Changed by Noah:
-    nonempty_datasets = []
     torch_datasets    = {}
+    # print("\n", datasets, "\n")
     for split in splits:
         for idx, data in enumerate(datasets[split]):
-            
             if num_pts_per_file[split][idx] != -1:
-                nonempty_datasets.append(JetDataset(data, num_pts=num_pts_per_file[split][idx]))
-                
-        torch_datasets[split] = ConcatDataset(nonempty_datasets)
-    
+                torch_datasets[split] = ConcatDataset(
+                    [JetDataset(data, num_pts=num_pts_per_file[split][idx])]
+                )
+                    
     return torch_datasets

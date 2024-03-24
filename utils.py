@@ -16,7 +16,6 @@ def args_init(args):
     if args.exp_name == '': # use random strings if not specified
         args.exp_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     if (args.local_rank == 0): # master
-        print(args)
         makedir(f"{args.logdir}/{args.exp_name}")
         with open(f"{args.logdir}/{args.exp_name}/args.json", 'w') as f:
             json.dump(args.__dict__, f, indent=4)

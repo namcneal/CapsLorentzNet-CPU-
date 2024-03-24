@@ -17,6 +17,14 @@ from LorentzNet import psi
 
 from sklearn.preprocessing import OneHotEncoder
 
+def println(thing, top_padding=True, bottom_padding=True):
+    if top_padding:
+        print("\n", thing)
+    elif bottom_padding:
+        print(thing, "\n")
+    else:
+        print("\n", thing, "\n")
+
 parser = argparse.ArgumentParser(description='Top tagging')
 parser.add_argument('--exp_name', type=str, default='', metavar='N',
                     help='experiment_name')
@@ -26,6 +34,10 @@ parser.add_argument('--batch_size', type=int, default=32, metavar='N',
                     help='input batch size for training')
 parser.add_argument('--num_train', type=int, default=-1, metavar='N',
                     help='number of training samples')
+parser.add_argument('--num_valid', type=int, default=-1, metavar='N',
+                    help='number of validation samples')
+parser.add_argument('--num_test', type=int, default=-1, metavar='N',
+                    help='number of testing samples')   
 parser.add_argument('--epochs', type=int, default=35, metavar='N',
                     help='number of training epochs')
 parser.add_argument('--warmup_epochs', type=int, default=5, metavar='N',
@@ -154,6 +166,7 @@ def train(res):
     ### training and validation
     for epoch in range(0, args.epochs):
         train_res = run(epoch, dataloaders['train'], partition='train')
+
         print("Time: train: %.2f \t Train loss %.4f \t Train acc: %.4f" % (train_res['time'],train_res['loss'],train_res['acc']))
         if epoch % args.val_interval == 0:
             if (args.local_rank == 0):
@@ -161,6 +174,7 @@ def train(res):
             dist.barrier() # wait master to save model
             with torch.no_grad():
                 val_res = run(epoch, dataloaders['valid'], partition='valid')
+                
             if (args.local_rank == 0): # only master process save
                 res['lr'].append(optimizer.param_groups[0]['lr'])
                 res['train_time'].append(train_res['time'])
@@ -178,11 +192,12 @@ def train(res):
                     res['best_val'] = val_res['acc']
                     res['best_epoch'] = epoch
 
-                print("Epoch %d/%d finished." % (epoch, args.epochs))
+                print("\nEpoch %d/%d finished." % (epoch, args.epochs))
                 print("Train time: %.2f \t Val time %.2f" % (train_res['time'], val_res['time']))
                 print("Train loss %.4f \t Train acc: %.4f" % (train_res['loss'], train_res['acc']))
                 print("Val loss: %.4f \t Val acc: %.4f" % (val_res['loss'], val_res['acc']))
                 print("Best val acc: %.4f at epoch %d." % (res['best_val'],  res['best_epoch']))
+                print("\n\t\t=============================================")
 
                 json_object = json.dumps(res, indent=4)
                 with open(f"{args.logdir}/{args.exp_name}/train-result.json", "w") as outfile:
@@ -225,6 +240,7 @@ def test(res):
 if __name__ == "__main__":    
     ### initialize args
     args, unknown = parser.parse_known_args()
+
     # args = parser.parse_args()
     utils.args_init(args)
 
@@ -241,23 +257,42 @@ if __name__ == "__main__":
                                     args.batch_size,
                                     args.num_workers,
                                     num_train=args.num_train,
+                                    num_valid=args.num_valid,
+                                    num_test=args.num_test,
                                     datadir=args.datadir)
     
     ### create parallel model
+    # Original:  num_primary_units = 8
     num_primary_units = 8
+    
+    # Original primary_unit_size: 32 * 6 * 6
     primary_unit_size = 32 * 6 * 6  # fixme get from conv2d
+    
+    # Original: output_unit_size = 8
     output_unit_size = 8
+    
+    # Original no_scalar: 18
+    no_scalar = 18
+    
+    # Original hidden:  72
+    no_hidden = 24
+    
+    # Original caps_in: 72
+    caps_in   = no_hidden
+    
+    # Original no_layers: 5
+    no_layers = 3
 
     model = CapsuleNetwork(
                          num_primary_units=num_primary_units,
                          primary_unit_size=primary_unit_size,
                          num_output_units=2, 
                          output_unit_size=output_unit_size,
-                         no_scalar=18,
-                         no_hidden=72,
-                         caps_in=72,
-                         dropout_rate=0.2,
-                         no_layers=5,
+                         no_scalar=no_scalar,
+                         no_hidden=no_hidden,
+                         caps_in=caps_in,
+                         dropout_rate=0.6,
+                         no_layers=no_layers,
                          c_weight_fact=0.001,
                          target_size=10,
                          dev = device)
@@ -273,9 +308,10 @@ if __name__ == "__main__":
     ### print model and data information
     if (args.local_rank == 0):
         pytorch_total_params = sum(p.numel() for p in ddp_model.parameters())
-        print("Network Size:", pytorch_total_params)
+        print("\n\nNetwork Size:", pytorch_total_params)
         for (split, dataloader) in dataloaders.items():
             print(f" {split} samples: {len(dataloader.dataset)}")
+        print("\n")
 
     ### optimizer
     optimizer = optim.AdamW(ddp_model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
